@@ -1,0 +1,17 @@
+{
+  "unit_id": "asp_dal_order_detail",
+  "source_file": "legacy\\classic-asp\\order_detail.asp",
+  "layer": "DATA_ACCESS_LAYER",
+  "description": "SQL queries and database connections extracted from order_detail.asp",
+  "legacy_queries": [],
+  "form_inputs_detected": [
+    "OrderId"
+  ],
+  "session_access_detected": [
+    "UserRole"
+  ],
+  "injection_risks": [],
+  "migration_target": "EF Core DbContext \u2014 AppDbContext.Orders, AppDbContext.OrderItems",
+  "slash_command": "/modernize-asp-dal",
+  "extracted_at": "2026-05-23T22:36:52.027007"
+}

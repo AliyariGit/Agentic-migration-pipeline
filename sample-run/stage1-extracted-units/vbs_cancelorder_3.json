@@ -1,0 +1,15 @@
+{
+  "unit_id": "vbs_cancelorder_3",
+  "source_file": "legacy\\vbscript\\ProcessOrder.vbs",
+  "unit_type": "Sub",
+  "name": "CancelOrder",
+  "legacy_code": "Sub CancelOrder(orderId, reason)\n    Dim rs\n    On Error Resume Next\n    \n    conn.Execute \"UPDATE Orders SET Status='Cancelled', CancelReason='\" & reason & \"' WHERE Id=\" & orderId\n    conn.Execute \"INSERT INTO AuditLog (OrderId, Action) VALUES (\" & orderId & \", 'CANCEL')\"\n    \n    Set rs = Nothing\nEnd Sub",
+  "metadata": {
+    "com_objects_detected": [],
+    "sql_patterns_detected": 2,
+    "has_error_handling": true,
+    "has_sql_injection_risk": false
+  },
+  "migration_target": "public async Task CancelOrderAsync(...) in OrderService.cs",
+  "extracted_at": "2026-05-23T22:36:52.023017"
+}

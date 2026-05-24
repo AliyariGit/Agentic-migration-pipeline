@@ -1,0 +1,20 @@
+{
+  "file": "output\\Views\\Order\\Detail.cshtml",
+  "status": "BLOCKED",
+  "issues": [
+    {
+      "severity": "HIGH",
+      "pattern_id": "response_write",
+      "description": "Response.Write detected \u2014 UI output must use Razor view",
+      "line_number": 3,
+      "line_content": "Replaces: All Response.Write(...) calls",
+      "fix_hint": "Move output to .cshtml view using @Model.Property syntax"
+    }
+  ],
+  "checked_at": "2026-05-23T22:36:52.876813",
+  "issue_count": {
+    "CRITICAL": 0,
+    "HIGH": 1,
+    "MEDIUM": 0
+  }
+}

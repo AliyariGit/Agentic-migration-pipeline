@@ -1,0 +1,15 @@
+{
+  "unit_id": "vbs_getordertotal_2",
+  "source_file": "legacy\\vbscript\\ProcessOrder.vbs",
+  "unit_type": "Sub",
+  "name": "GetOrderTotal",
+  "legacy_code": "Sub GetOrderTotal(orderId)\n    Dim rs, total\n    Set rs = conn.Execute(\"SELECT SUM(Price) as Total FROM OrderItems WHERE OrderId=\" & orderId)\n    \n    If Not rs.EOF Then\n        total = rs.Fields(\"Total\")\n        WScript.Echo \"Total: \" & total\n    End If\n    \n    rs.Close\n    Set rs = Nothing\nEnd Sub",
+  "metadata": {
+    "com_objects_detected": [],
+    "sql_patterns_detected": 0,
+    "has_error_handling": false,
+    "has_sql_injection_risk": false
+  },
+  "migration_target": "public async Task GetOrderTotalAsync(...) in OrderService.cs",
+  "extracted_at": "2026-05-23T22:36:52.022978"
+}

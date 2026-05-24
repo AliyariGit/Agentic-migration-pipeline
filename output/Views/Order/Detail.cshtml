@@ -1,0 +1,45 @@
+@model LegacyMigration.ViewModels.OrderDetailViewModel
+@* Migrated from: legacy/classic-asp/order_detail.asp (UI layer)
+   Replaces: All Response.Write(...) calls
+   Migration date: 2026-05-23 *@
+
+@{
+    ViewData["Title"] = $"Order #{Model.OrderId}";
+}
+
+<h1>Order Detail</h1>
+
+@if (Model.IsAdmin)
+{
+    <div class="admin-banner">
+        <strong>Admin View</strong> — Customer: @Model.CustomerName
+    </div>
+}
+
+<dl>
+    <dt>Order ID</dt>
+    <dd>@Model.OrderId</dd>
+
+    <dt>Customer</dt>
+    <dd>@Model.CustomerName</dd>
+
+    <dt>Status</dt>
+    <dd><span class="badge">@Model.Status</span></dd>
+
+    <dt>Total</dt>
+    <dd>@Model.Total.ToString("C")</dd>
+</dl>
+
+<h2>Items</h2>
+<ul>
+    @foreach (var item in Model.Items)
+    {
+        <li>@item.ProductName — @item.Price.ToString("C") × @item.Quantity = @item.LineTotal.ToString("C")</li>
+    }
+</ul>
+
+<form asp-action="Cancel" asp-controller="Order" method="post">
+    @Html.AntiForgeryToken()
+    <input type="hidden" asp-for="OrderId" />
+    <button type="submit" class="btn-danger">Cancel Order</button>
+</form>

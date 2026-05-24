@@ -1,0 +1,1153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Agentic Migration Pipeline</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#0d1117;color:#e6edf3;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+::-webkit-scrollbar{width:6px;height:6px}::-webkit-scrollbar-track{background:#161b22}::-webkit-scrollbar-thumb{background:#484f58;border-radius:3px}
+
+/* ── Header ── */
+.app-header{background:#161b22;border-bottom:1px solid #30363d;display:flex;align-items:stretch;padding:0 20px 0 16px;flex-shrink:0;height:52px}
+.brand{display:flex;flex-direction:column;justify-content:center;margin-right:28px;padding:0 4px}
+.brand-name{font-size:14px;font-weight:700;color:#58a6ff;letter-spacing:-.2px}
+.brand-sub{font-size:11px;color:#8b949e;margin-top:1px}
+.nav-tabs{display:flex;flex:1;gap:0}
+.nav-tab{padding:0 16px;font-size:13px;cursor:pointer;border-bottom:2px solid transparent;color:#8b949e;display:flex;align-items:center;gap:6px;white-space:nowrap;user-select:none;transition:color .15s}
+.nav-tab:hover{color:#c9d1d9;background:#1c2128}
+.nav-tab.on{color:#e6edf3;border-bottom-color:#58a6ff}
+.header-btns{display:flex;align-items:center;gap:8px}
+.btn{padding:5px 14px;border-radius:6px;border:none;cursor:pointer;font-size:12px;font-weight:600;transition:filter .15s}
+.btn:hover{filter:brightness(1.15)}
+.btn:disabled{opacity:.4;cursor:default}
+.btn-run{background:#238636;color:#fff}
+.btn-demo{background:#7b44d4;color:#fff}
+
+/* ── Pages ── */
+.pages{flex:1;overflow:hidden;position:relative}
+.page{position:absolute;inset:0;overflow-y:auto;display:none}
+.page.on{display:block}
+
+/* ── Status bar ── */
+.statusbar{background:#1c2128;border-top:1px solid #30363d;padding:4px 18px;display:flex;gap:20px;font-size:11px;color:#8b949e;flex-shrink:0}
+.sb{display:flex;align-items:center;gap:5px}
+.sb b{color:#e6edf3}.sb b.ok{color:#3fb950}.sb b.err{color:#f85149}.sb b.act{color:#58a6ff}
+
+/* ═══════════════════════════════════════════════════════════════
+   PIPELINE PAGE
+═══════════════════════════════════════════════════════════════ */
+.pipeline-page{padding:28px 32px;max-width:1100px;margin:0 auto}
+.pipeline-page h2{font-size:18px;color:#e6edf3;margin-bottom:4px}
+.pipeline-page .subtitle{font-size:13px;color:#8b949e;margin-bottom:28px}
+
+/* Stage flow diagram */
+.stage-flow{display:flex;align-items:flex-start;gap:0;margin-bottom:32px;overflow-x:auto;padding-bottom:8px}
+.stage-card{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:16px 14px;width:168px;flex-shrink:0;transition:border-color .3s,box-shadow .3s;position:relative}
+.stage-card.s-idle{border-color:#30363d}
+.stage-card.s-active{border-color:#58a6ff;box-shadow:0 0 0 2px rgba(88,166,255,.2);animation:glow 1.5s ease-in-out infinite}
+.stage-card.s-done{border-color:#3fb950}
+.stage-card.s-fail{border-color:#f85149}
+@keyframes glow{0%,100%{box-shadow:0 0 0 2px rgba(88,166,255,.15)}50%{box-shadow:0 0 0 5px rgba(88,166,255,.3)}}
+.stage-num{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;margin-bottom:10px;flex-shrink:0}
+.s-idle .stage-num{background:#21262d;color:#8b949e}
+.s-active .stage-num{background:#1f3558;color:#58a6ff}
+.s-done .stage-num{background:#1a4731;color:#3fb950}
+.s-fail .stage-num{background:#3d0e0e;color:#f85149}
+.stage-title{font-size:12px;font-weight:700;color:#c9d1d9;margin-bottom:6px;text-transform:uppercase;letter-spacing:.06em}
+.stage-desc{font-size:11px;color:#8b949e;line-height:1.5}
+.stage-output{font-size:10px;color:#484f58;margin-top:8px;font-style:italic}
+.stage-arrow{display:flex;align-items:center;padding:0 6px;margin-top:24px;color:#484f58;font-size:20px;flex-shrink:0}
+.stage-card.s-done .stage-output{color:#3fb950}
+
+/* Run controls */
+.run-controls{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:20px 24px;margin-bottom:24px;display:flex;align-items:center;gap:16px}
+.run-controls-text h3{font-size:14px;color:#e6edf3;margin-bottom:3px}
+.run-controls-text p{font-size:12px;color:#8b949e}
+.run-controls-btns{display:flex;gap:10px;margin-left:auto}
+.btn-lg{padding:9px 22px;border-radius:6px;border:none;cursor:pointer;font-size:13px;font-weight:600}
+.btn-lg:disabled{opacity:.4;cursor:default}
+.btn-lg-run{background:#238636;color:#fff}
+.btn-lg-demo{background:#7b44d4;color:#fff}
+
+/* Progress dots */
+.prog-strip{display:flex;align-items:center;gap:0;margin-bottom:16px;padding:12px 0}
+.prog-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;transition:background .4s}
+.prog-dot.idle{background:#30363d}
+.prog-dot.active{background:#58a6ff;box-shadow:0 0 0 3px rgba(88,166,255,.3);animation:pdot 1.2s infinite}
+.prog-dot.done{background:#3fb950}
+.prog-dot.fail{background:#f85149}
+@keyframes pdot{0%,100%{box-shadow:0 0 0 3px rgba(88,166,255,.3)}50%{box-shadow:0 0 0 6px rgba(88,166,255,.1)}}
+.prog-line-seg{flex:1;height:2px;background:#30363d;transition:background .4s}
+.prog-line-seg.done{background:#3fb950}
+.prog-label-strip{display:flex;gap:0;margin-bottom:20px}
+.prog-lbl{flex:1;font-size:10px;color:#8b949e;text-align:center}
+.prog-lbl:first-child{text-align:left}
+.prog-lbl:last-child{text-align:right}
+
+/* Log area */
+.log-section h3{font-size:12px;font-weight:700;color:#8b949e;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px}
+.log-box{background:#0d1117;border:1px solid #21262d;border-radius:6px;padding:14px 16px;min-height:220px;max-height:340px;overflow-y:auto;font-family:'Cascadia Code','Consolas',monospace;font-size:12px}
+.ll{line-height:1.8;white-space:pre-wrap;word-break:break-all}
+.ll.ok{color:#3fb950}.ll.err{color:#f85149}.ll.warn{color:#d29922}
+.ll.head{color:#58a6ff;font-weight:600}.ll.dim{color:#484f58}.ll.def{color:#c9d1d9}
+.idle-hint{color:#484f58;font-style:italic}
+
+/* ═══════════════════════════════════════════════════════════════
+   TRANSFORM PAGES (shared)
+═══════════════════════════════════════════════════════════════ */
+.transform-page{padding:24px 28px;max-width:1280px;margin:0 auto}
+.transform-banner{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:18px 24px;margin-bottom:20px;display:flex;align-items:flex-start;gap:20px}
+.t-banner-icon{font-size:28px;flex-shrink:0}
+.t-banner-body h2{font-size:16px;font-weight:700;color:#e6edf3;margin-bottom:4px}
+.t-banner-body p{font-size:13px;color:#8b949e;line-height:1.6}
+.t-banner-tags{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.tag{padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600}
+.tag-bad{background:#3d0e0e;color:#f85149}
+.tag-good{background:#122d22;color:#3fb950}
+.tag-info{background:#0e2040;color:#58a6ff}
+
+/* Split pane */
+.split-pane{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px}
+.pane{background:#161b22;border:1px solid #30363d;border-radius:8px;overflow:hidden;display:flex;flex-direction:column}
+.pane-header{padding:10px 16px;border-bottom:1px solid #30363d;display:flex;align-items:center;gap:10px;flex-shrink:0}
+.pane-header .ph-icon{font-size:15px}
+.pane-header .ph-title{font-size:13px;font-weight:700}
+.pane-header .ph-file{font-size:11px;color:#8b949e;margin-left:auto;font-family:monospace}
+.pane-bad .pane-header{background:#1a0d0d}
+.pane-bad .pane-header .ph-title{color:#f85149}
+.pane-good .pane-header{background:#0d1a0f}
+.pane-good .pane-header .ph-title{color:#3fb950}
+.pane-body{overflow:auto;flex:1}
+pre.code{margin:0;padding:12px 16px;font-family:'Cascadia Code','Consolas',monospace;font-size:12px;line-height:1.7;color:#c9d1d9;tab-size:2;counter-reset:line}
+
+/* Annotation lines */
+.cline{display:block;padding:0 48px 0 8px;position:relative;border-left:3px solid transparent}
+.cline.a1{background:rgba(88,166,255,.08);border-left-color:#58a6ff}
+.cline.a2{background:rgba(210,168,255,.08);border-left-color:#d2a8ff}
+.cline.a3{background:rgba(248,81,73,.08);border-left-color:#f85149}
+.cline.a4{background:rgba(210,153,34,.1);border-left-color:#d29922}
+.cline.a5{background:rgba(63,185,80,.07);border-left-color:#3fb950}
+.cline.a6{background:rgba(86,211,100,.07);border-left-color:#56d364}
+.ann-badge{position:absolute;right:8px;top:50%;transform:translateY(-50%);width:16px;height:16px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;pointer-events:none;flex-shrink:0}
+.ab1{background:#1f3558;color:#58a6ff}
+.ab2{background:#2d1e5c;color:#d2a8ff}
+.ab3{background:#3d0e0e;color:#f85149}
+.ab4{background:#3d2600;color:#d29922}
+.ab5{background:#122d22;color:#3fb950}
+.ab6{background:#0d2b17;color:#56d364}
+
+/* Change cards */
+.changes-section h3{font-size:12px;font-weight:700;color:#8b949e;text-transform:uppercase;letter-spacing:.08em;margin-bottom:12px}
+.changes-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:28px}
+.change-card{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:14px;display:flex;gap:12px;align-items:flex-start}
+.change-badge{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;flex-shrink:0;margin-top:2px}
+.change-body .cb-from{font-size:12px;color:#f85149;font-family:monospace;margin-bottom:4px}
+.change-body .cb-arrow{font-size:11px;color:#8b949e;margin:2px 0}
+.change-body .cb-to{font-size:12px;color:#3fb950;font-family:monospace;margin-bottom:6px}
+.change-body .cb-why{font-size:11px;color:#8b949e;line-height:1.5}
+
+/* ═══════════════════════════════════════════════════════════════
+   ASP PAGE — 1 → 4 files
+═══════════════════════════════════════════════════════════════ */
+.asp-layout{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px}
+.asp-outputs{display:flex;flex-direction:column;gap:12px}
+.output-tabs{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap}
+.out-tab{padding:5px 12px;border-radius:4px;border:1px solid #30363d;background:#1c2128;font-size:11px;font-weight:600;cursor:pointer;color:#8b949e;font-family:monospace}
+.out-tab:hover{background:#21262d;color:#e6edf3}
+.out-tab.on{background:#1f3558;border-color:#58a6ff;color:#58a6ff}
+.out-panel{display:none}
+.out-panel.on{display:block}
+
+/* Output arrow banner */
+.split-arrow-banner{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:14px 18px;margin-bottom:20px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.sab-item{display:flex;flex-direction:column;align-items:center;gap:4px}
+.sab-file{font-size:11px;font-family:monospace;color:#8b949e;background:#0d1117;padding:3px 8px;border-radius:4px;border:1px solid #21262d}
+.sab-arrow{color:#484f58;font-size:18px;padding:0 8px}
+.sab-files{display:flex;gap:8px;flex-wrap:wrap}
+.sab-output{font-size:11px;font-family:monospace;padding:3px 8px;border-radius:4px;border:1px solid;background:rgba(0,0,0,.3)}
+.sab-output.ctrl{color:#58a6ff;border-color:#1f3558}
+.sab-output.vm{color:#d2a8ff;border-color:#2d1e5c}
+.sab-output.view{color:#3fb950;border-color:#122d22}
+.sab-output.svc{color:#d29922;border-color:#3d2600}
+
+/* ═══════════════════════════════════════════════════════════════
+   VALIDATION PAGE
+═══════════════════════════════════════════════════════════════ */
+.val-page{padding:24px 28px;max-width:900px;margin:0 auto}
+.val-page .page-title{font-size:18px;font-weight:700;color:#e6edf3;margin-bottom:4px}
+.val-page .page-sub{font-size:13px;color:#8b949e;margin-bottom:24px}
+.val-card{background:#161b22;border:1px solid #30363d;border-radius:8px;margin-bottom:14px;overflow:hidden}
+.val-card-head{padding:12px 18px;display:flex;align-items:center;gap:12px;border-bottom:1px solid #21262d}
+.val-card-head .vc-file{font-size:13px;font-weight:700;font-family:monospace;color:#e6edf3}
+.val-badge{padding:3px 10px;border-radius:10px;font-size:11px;font-weight:700;margin-left:auto}
+.val-badge.pass{background:#122d22;color:#3fb950}
+.val-badge.block{background:#3d0e0e;color:#f85149}
+.vc-counts{font-size:11px;color:#8b949e;margin-left:8px}
+.val-issue{padding:11px 18px;border-bottom:1px solid #21262d;display:flex;gap:12px;align-items:flex-start}
+.val-issue:last-child{border-bottom:none}
+.sev-badge{padding:2px 8px;border-radius:4px;font-size:10px;font-weight:800;white-space:nowrap;margin-top:2px;flex-shrink:0}
+.sev-badge.CRITICAL{background:#3d0e0e;color:#f85149}
+.sev-badge.HIGH{background:#3d2600;color:#d29922}
+.sev-badge.MEDIUM{background:#0e2a25;color:#3fb950}
+.vi-content .vi-desc{font-size:13px;color:#c9d1d9}
+.vi-content .vi-fix{font-size:12px;color:#8b949e;margin-top:3px}
+.vi-content .vi-line{font-family:'Cascadia Code','Consolas',monospace;font-size:11px;color:#8b949e;margin-top:5px;background:#0d1117;padding:3px 8px;border-radius:3px;display:inline-block}
+.val-empty{text-align:center;padding:60px;color:#484f58}
+.val-empty .ve-icon{font-size:40px;margin-bottom:12px}
+
+/* ═══════════════════════════════════════════════════════════════
+   FILES PAGE
+═══════════════════════════════════════════════════════════════ */
+.files-page{display:flex;height:100%;overflow:hidden}
+.files-sidebar{width:220px;background:#161b22;border-right:1px solid #30363d;display:flex;flex-direction:column;flex-shrink:0;overflow-y:auto}
+.fs-head{padding:10px 14px 6px;font-size:10px;font-weight:700;color:#8b949e;text-transform:uppercase;letter-spacing:.1em}
+.file-entry{padding:6px 14px;cursor:pointer;font-size:12px;color:#8b949e;border-left:2px solid transparent;display:flex;align-items:center;gap:6px}
+.file-entry:hover{background:#1c2128;color:#e6edf3}
+.file-entry.sel{background:#1c2128;border-left-color:#58a6ff;color:#58a6ff}
+.file-entry .fe-icon{width:14px;text-align:center;flex-shrink:0}
+.files-viewer{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.fv-topbar{padding:7px 14px;background:#161b22;border-bottom:1px solid #30363d;font-size:12px;color:#58a6ff;font-family:monospace;flex-shrink:0}
+.fv-code{flex:1;overflow:auto}
+pre.fv-pre{padding:14px 18px;font-family:'Cascadia Code','Consolas',monospace;font-size:12.5px;line-height:1.7;color:#e6edf3;tab-size:4;margin:0}
+.fv-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:#484f58;gap:8px;font-size:13px}
+.fv-empty-icon{font-size:40px}
+
+/* C# syntax highlight */
+.kw{color:#ff7b72}.ty{color:#79c0ff}.st{color:#a5d6ff}.cm{color:#8b949e;font-style:italic}.at{color:#ffa657}.mt{color:#d2a8ff}
+</style>
+</head>
+<body>
+
+<!-- ── Header ── -->
+<header class="app-header">
+  <div class="brand">
+    <div class="brand-name">&#9889; Agentic Migration Pipeline</div>
+    <div class="brand-sub">VBScript &amp; Classic ASP &#8594; .NET Core C#</div>
+  </div>
+  <nav class="nav-tabs">
+    <div class="nav-tab on" onclick="showPage('pipeline')">&#128260; Pipeline</div>
+    <div class="nav-tab" onclick="showPage('vbs')">&#128220; VBScript &#8594; C#</div>
+    <div class="nav-tab" onclick="showPage('asp')">&#127760; ASP &#8594; MVC</div>
+    <div class="nav-tab" onclick="showPage('validate')">&#128737; Validation Gate</div>
+    <div class="nav-tab" onclick="showPage('files')">&#128193; Output Files</div>
+  </nav>
+</header>
+
+<div class="pages">
+
+<!-- ═══════════════════════════════════════════════════════════════
+     PAGE 1 — PIPELINE
+═══════════════════════════════════════════════════════════════ -->
+<div id="page-pipeline" class="page on">
+<div class="pipeline-page">
+  <h2>How the Pipeline Works</h2>
+  <p class="subtitle">Five automated stages transform legacy VBScript &amp; Classic ASP into governed .NET Core C# code.</p>
+
+  <!-- Stage flow -->
+  <div class="stage-flow" id="stageFlow"></div>
+
+  <!-- Run controls -->
+  <div class="run-controls">
+    <div class="run-controls-text">
+      <h3>Run the Pipeline</h3>
+      <p>Normal mode produces clean code. Demo mode injects failures to show validation + recovery.</p>
+    </div>
+    <div class="run-controls-btns">
+      <button class="btn-lg btn-lg-run" id="btnRun" onclick="startRun(false)">&#9654; Run Pipeline</button>
+      <button class="btn-lg btn-lg-demo" id="btnDemo" onclick="startRun(true)">&#129514; Demo Mode</button>
+    </div>
+  </div>
+
+  <!-- Progress -->
+  <div class="prog-strip" id="progStrip"></div>
+  <div class="prog-label-strip" id="progLabels"></div>
+
+  <!-- Log -->
+  <div class="log-section">
+    <h3>Live Output</h3>
+    <div class="log-box" id="logBox">
+      <div class="ll idle-hint">Click &#9654; Run Pipeline or &#129514; Demo Mode to start&hellip;</div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     PAGE 2 — VBSCRIPT → C# TRANSFORMATION
+═══════════════════════════════════════════════════════════════ -->
+<div id="page-vbs" class="page">
+<div class="transform-page">
+
+  <div class="transform-banner">
+    <div class="t-banner-icon">&#128220;</div>
+    <div class="t-banner-body">
+      <h2>VBScript &#8594; C# Service Class</h2>
+      <p><strong>ProcessOrder.vbs</strong> (3 Subs, 48 lines) becomes <strong>OrderService.cs</strong> &mdash; a sealed class with 3 async methods, constructor injection, EF Core queries, and structured logging.</p>
+      <div class="t-banner-tags">
+        <span class="tag tag-bad">&#10006; SQL Injection Risk</span>
+        <span class="tag tag-bad">&#10006; On Error Resume Next</span>
+        <span class="tag tag-bad">&#10006; Global ADODB.Connection</span>
+        <span class="tag tag-bad">&#10006; Synchronous / Untyped</span>
+        <span class="tag tag-good">&#10003; EF Core Typed Queries</span>
+        <span class="tag tag-good">&#10003; try/catch + ILogger</span>
+        <span class="tag tag-good">&#10003; Constructor Injection</span>
+        <span class="tag tag-good">&#10003; sealed + async Task</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Split pane -->
+  <div class="split-pane">
+    <div class="pane pane-bad">
+      <div class="pane-header">
+        <span class="ph-icon">&#128220;</span>
+        <span class="ph-title">BEFORE &mdash; Legacy VBScript</span>
+        <span class="ph-file">ProcessOrder.vbs</span>
+      </div>
+      <div class="pane-body"><pre class="code" id="vbsPre"></pre></div>
+    </div>
+    <div class="pane pane-good">
+      <div class="pane-header">
+        <span class="ph-icon">&#128998;</span>
+        <span class="ph-title">AFTER &mdash; Modern C#</span>
+        <span class="ph-file">OrderService.cs</span>
+      </div>
+      <div class="pane-body"><pre class="code" id="csPre"></pre></div>
+    </div>
+  </div>
+
+  <!-- Change legend -->
+  <div class="changes-section">
+    <h3>Transformation Map</h3>
+    <div class="changes-grid" id="vbsChanges"></div>
+  </div>
+</div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     PAGE 3 — CLASSIC ASP → MVC
+═══════════════════════════════════════════════════════════════ -->
+<div id="page-asp" class="page">
+<div class="transform-page">
+
+  <div class="transform-banner">
+    <div class="t-banner-icon">&#127760;</div>
+    <div class="t-banner-body">
+      <h2>Classic ASP &#8594; .NET MVC (Controller + ViewModel + View)</h2>
+      <p><strong>order_detail.asp</strong> (mixed concerns: DB access, business logic, HTML output) becomes <strong>4 separate files</strong>, each with a single responsibility &mdash; Controller, ViewModel, Razor View, and Service.</p>
+      <div class="t-banner-tags">
+        <span class="tag tag-bad">&#10006; SQL in UI layer</span>
+        <span class="tag tag-bad">&#10006; Session[] direct access</span>
+        <span class="tag tag-bad">&#10006; Response.Write HTML</span>
+        <span class="tag tag-bad">&#10006; Request.Form untyped</span>
+        <span class="tag tag-good">&#10003; Typed ViewModel</span>
+        <span class="tag tag-good">&#10003; Razor @Model binding</span>
+        <span class="tag tag-good">&#10003; ISessionService</span>
+        <span class="tag tag-good">&#10003; Separation of concerns</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 1 → 4 banner -->
+  <div class="split-arrow-banner">
+    <div class="sab-item">
+      <div class="sab-file">order_detail.asp</div>
+      <div style="font-size:10px;color:#8b949e;margin-top:3px">1 file, mixed concerns</div>
+    </div>
+    <div class="sab-arrow">&#10145;</div>
+    <div class="sab-files">
+      <div class="sab-output ctrl">OrderController.cs</div>
+      <div class="sab-output vm">OrderDetailViewModel.cs</div>
+      <div class="sab-output view">Detail.cshtml</div>
+      <div class="sab-output svc">OrderService.cs (data)</div>
+    </div>
+  </div>
+
+  <!-- Split: original ASP on left, 4 outputs tabbed on right -->
+  <div class="asp-layout">
+    <!-- Left: original ASP -->
+    <div class="pane pane-bad" style="max-height:580px">
+      <div class="pane-header">
+        <span class="ph-icon">&#127760;</span>
+        <span class="ph-title">BEFORE &mdash; Classic ASP</span>
+        <span class="ph-file">order_detail.asp</span>
+      </div>
+      <div class="pane-body"><pre class="code" id="aspPre"></pre></div>
+    </div>
+    <!-- Right: 4 generated files -->
+    <div style="display:flex;flex-direction:column;gap:0">
+      <div class="output-tabs">
+        <div class="out-tab on" onclick="showOutTab(this,'ctrl')">&#128998; Controller</div>
+        <div class="out-tab" onclick="showOutTab(this,'vm')">&#128203; ViewModel</div>
+        <div class="out-tab" onclick="showOutTab(this,'view')">&#127760; Razor View</div>
+      </div>
+      <div class="pane pane-good" style="max-height:520px">
+        <div class="pane-header" id="outPaneHeader">
+          <span class="ph-icon">&#128998;</span>
+          <span class="ph-title">AFTER &mdash; Controller</span>
+          <span class="ph-file" id="outPaneFile">OrderController.cs</span>
+        </div>
+        <div class="pane-body">
+          <div class="out-panel on" id="out-ctrl"><pre class="code" id="ctrlPre"></pre></div>
+          <div class="out-panel" id="out-vm"><pre class="code" id="vmPre"></pre></div>
+          <div class="out-panel" id="out-view"><pre class="code" id="viewPre"></pre></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="changes-section">
+    <h3>Transformation Map</h3>
+    <div class="changes-grid" id="aspChanges"></div>
+  </div>
+</div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     PAGE 4 — VALIDATION GATE
+═══════════════════════════════════════════════════════════════ -->
+<div id="page-validate" class="page">
+<div class="val-page">
+  <div class="page-title">&#128737; Validation Gate &mdash; Stage 4</div>
+  <p class="page-sub">Automated referee scans every generated file before any human review. Blocks promotion of code containing critical or high-severity patterns.</p>
+  <div id="valCards">
+    <div class="val-empty"><div class="ve-icon">&#128269;</div><div>Run the pipeline first to generate validation reports.</div></div>
+  </div>
+</div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     PAGE 5 — OUTPUT FILES
+═══════════════════════════════════════════════════════════════ -->
+<div id="page-files" class="page" style="overflow:hidden">
+<div class="files-page">
+  <div class="files-sidebar">
+    <div class="fs-head">Generated Files</div>
+    <div id="fileSidebar"><div style="padding:12px 14px;font-size:12px;color:#484f58;font-style:italic">Run pipeline to generate files</div></div>
+  </div>
+  <div class="files-viewer">
+    <div class="fv-topbar" id="fvTopbar">Select a file to view its contents</div>
+    <div class="fv-code">
+      <div class="fv-empty" id="fvEmpty">
+        <div class="fv-empty-icon">&#128193;</div>
+        <div>Select a file from the sidebar</div>
+      </div>
+      <pre class="fv-pre" id="fvPre" style="display:none"></pre>
+    </div>
+  </div>
+</div>
+</div>
+
+</div><!-- .pages -->
+
+<!-- ── Status bar ── -->
+<div class="statusbar">
+  <div class="sb">Status: <b id="sbStatus" class="act">Ready</b></div>
+  <div class="sb">Files: <b id="sbFiles">0</b></div>
+  <div class="sb">Passed: <b id="sbPass" class="ok">-</b></div>
+  <div class="sb">Blocked: <b id="sbBlock" class="err">-</b></div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// CODE DATA
+// ═══════════════════════════════════════════════════════════════
+
+const VBS_CODE = `' ============================================================
+' ProcessOrder.vbs  — LEGACY VBScript File
+' This is what we receive from the client's old system
+' ============================================================
+
+Dim conn
+Set conn = CreateObject("ADODB.Connection")
+conn.Open "DSN=OrdersDB"
+
+Sub ProcessOrder(orderId, customerId, amount)
+    Dim rs
+    On Error Resume Next
+
+    conn.Execute "UPDATE Orders SET Status='Processing' WHERE Id=" & orderId
+
+    If Err.Number <> 0 Then
+        MsgBox "Error processing order"
+        Err.Clear
+    End If
+
+    ' Update customer balance
+    conn.Execute "UPDATE Customers SET Balance=Balance-" & amount & " WHERE Id=" & customerId
+
+    Set rs = Nothing
+End Sub
+
+Sub GetOrderTotal(orderId)
+    Dim rs, total
+    Set rs = conn.Execute("SELECT SUM(Price) as Total FROM OrderItems WHERE OrderId=" & orderId)
+
+    If Not rs.EOF Then
+        total = rs.Fields("Total")
+        WScript.Echo "Total: " & total
+    End If
+
+    rs.Close
+    Set rs = Nothing
+End Sub
+
+Sub CancelOrder(orderId, reason)
+    Dim rs
+    On Error Resume Next
+
+    conn.Execute "UPDATE Orders SET Status='Cancelled', CancelReason='" & reason & "' WHERE Id=" & orderId
+    conn.Execute "INSERT INTO AuditLog (OrderId, Action) VALUES (" & orderId & ", 'CANCEL')"
+
+    Set rs = Nothing
+End Sub`;
+
+// line numbers → annotation id (1-indexed)
+const VBS_ANN = {
+  7:1, 8:1,          // CreateObject/conn.Open → DI
+  10:2,              // Sub ProcessOrder → sealed class
+  12:3,              // On Error Resume Next → try/catch
+  14:4,              // SQL concat → EF Core
+  15:3, 16:3, 17:3,  // Err handling → logger
+  21:4,              // SQL concat → EF Core
+  23:5,              // Set rs = Nothing → auto-dispose
+  26:2,              // Sub GetOrderTotal → async method
+  28:4,              // SQL concat → EF Core
+  34:5, 35:5,        // rs.Close / Nothing → auto-dispose
+  38:2,              // Sub CancelOrder → async method
+  40:3,              // On Error Resume Next
+  43:4, 44:4,        // SQL concat
+  46:5,              // Nothing → auto-dispose
+};
+
+const CS_CODE = `using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+
+namespace LegacyMigration.Services;
+
+/// <summary>Handles order processing. Migrated from ProcessOrder.vbs</summary>
+public sealed class OrderService
+{
+    private readonly AppDbContext _context;
+    private readonly ILogger<OrderService> _logger;
+
+    public OrderService(AppDbContext context, ILogger<OrderService> logger)
+    {
+        _context = context;
+        _logger = logger;
+    }
+
+    /// <summary>Migrated from: Sub ProcessOrder(orderId, customerId, amount)</summary>
+    public async Task ProcessOrderAsync(int orderId, int customerId, decimal amount)
+    {
+        try
+        {
+            var order = await _context.Orders.FindAsync(orderId)
+                ?? throw new InvalidOperationException($"Order {orderId} not found.");
+
+            order.Status = "Processing";
+
+            var customer = await _context.Customers.FindAsync(customerId)
+                ?? throw new InvalidOperationException($"Customer {customerId} not found.");
+
+            customer.Balance -= amount;
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation("Order {OrderId} processed for Customer {CustomerId}",
+                orderId, customerId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to process Order {OrderId}", orderId);
+            throw;
+        }
+    }
+
+    /// <summary>Migrated from: Sub GetOrderTotal(orderId)</summary>
+    public async Task<decimal> GetOrderTotalAsync(int orderId)
+    {
+        var total = await _context.OrderItems
+            .Where(i => i.OrderId == orderId)
+            .SumAsync(i => i.Price * i.Quantity);
+
+        _logger.LogInformation("Order {OrderId} total: {Total}", orderId, total);
+        return total;
+    }
+
+    /// <summary>Migrated from: Sub CancelOrder(orderId, reason)</summary>
+    public async Task CancelOrderAsync(int orderId, string reason)
+    {
+        try
+        {
+            var order = await _context.Orders.FindAsync(orderId)
+                ?? throw new InvalidOperationException($"Order {orderId} not found.");
+
+            order.Status = "Cancelled";
+            order.CancelReason = reason;
+
+            _context.AuditLogs.Add(new AuditLog {
+                OrderId = orderId,
+                Action = "CANCEL",
+                Timestamp = DateTime.UtcNow
+            });
+
+            await _context.SaveChangesAsync();
+            _logger.LogInformation("Order {OrderId} cancelled. Reason: {Reason}", orderId, reason);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to cancel Order {OrderId}", orderId);
+            throw;
+        }
+    }
+}`;
+
+const CS_ANN = {
+  7:2,               // public sealed class → ann 2
+  9:1, 10:1, 12:1,   // readonly fields / constructor → DI
+  19:2,              // public async Task → ann 2
+  21:3,              // try → ann 3
+  23:4, 24:4,        // EF Core FindAsync → ann 4
+  28:4, 29:4,        // EF Core FindAsync → ann 4
+  31:5,              // SaveChangesAsync → ann 5
+  33:6, 34:6,        // LogInformation → ann 6
+  36:3, 37:3,        // catch + LogError → ann 3
+  38:3,
+  43:2,              // GetOrderTotalAsync → ann 2
+  45:4, 46:4, 47:4,  // EF Core OrderItems → ann 4
+  49:6,              // LogInformation → ann 6
+  53:2,              // CancelOrderAsync → ann 2
+  55:3,              // try → ann 3
+  57:4,              // FindAsync → ann 4
+  65:4, 66:4, 67:4, 68:4, // AuditLogs.Add → ann 4
+  71:5,              // SaveChangesAsync → ann 5
+  72:6,              // LogInformation → ann 6
+  74:3, 75:3, 76:3,  // catch+LogError → ann 3
+};
+
+// VBScript changes
+const VBS_CHANGES = [
+  { id:1, from:'CreateObject("ADODB.Connection")', to:'Constructor-injected AppDbContext', why:'Removes global state, enables DI container lifecycle and testing', cls:'ab1' },
+  { id:2, from:'Sub ProcessOrder(...)', to:'public sealed class + async Task<T>', why:'Strongly-typed async method on a DI-registered sealed service class', cls:'ab2' },
+  { id:3, from:'On Error Resume Next + MsgBox', to:'try/catch + _logger.LogError(ex,...)', why:'Structured exception handling with searchable log correlation IDs', cls:'ab3' },
+  { id:4, from:'"SELECT ... WHERE Id=" & orderId', to:'_context.Orders.FindAsync(orderId)', why:'EF Core parameterised queries — eliminates SQL injection vulnerability', cls:'ab4' },
+  { id:5, from:'rs.Close / Set rs = Nothing', to:'Automatic EF Core disposal', why:'DbContext lifetime managed by DI container — no manual resource cleanup', cls:'ab5' },
+  { id:6, from:'No logging / WScript.Echo', to:'_logger.LogInformation(...) structured', why:'Structured log parameters enable filtering, dashboards, and alerting', cls:'ab6' },
+];
+
+// ── Classic ASP code ──────────────────────────────────────────
+const ASP_CODE = `<%
+' ============================================================
+' order_detail.asp  — LEGACY Classic ASP File
+' ============================================================
+
+Dim conn, rs, orderId, customerName, total
+
+orderId = Request.Form("OrderId")
+
+' --- SQL DATA ACCESS LAYER ---
+Set conn = Server.CreateObject("ADODB.Connection")
+conn.Open "DSN=OrdersDB"
+
+Set rs = conn.Execute("SELECT o.*, c.Name FROM Orders o " _
+    & "JOIN Customers c ON o.CustomerId=c.Id " _
+    & "WHERE o.Id=" & orderId)
+
+If Not rs.EOF Then
+    customerName = rs("Name")
+    total = rs("Total")
+End If
+
+Dim itemsRS
+Set itemsRS = conn.Execute("SELECT * FROM OrderItems WHERE OrderId=" & orderId)
+
+%>
+
+<!-- UI / RESPONSE LAYER -->
+<html><body>
+<h1>Order Detail</h1>
+
+<%
+If Session("UserRole") = "Admin" Then
+    Response.Write("<p>Admin View: Customer = " & customerName & "</p>")
+End If
+
+Response.Write("<p>Order ID: " & orderId & "</p>")
+Response.Write("<p>Customer: " & customerName & "</p>")
+Response.Write("<p>Total: $" & total & "</p>")
+
+Do While Not itemsRS.EOF
+    Response.Write("<li>" & itemsRS("ProductName") & " - $" & itemsRS("Price") & "</li>")
+    itemsRS.MoveNext
+Loop
+%>
+
+<form method="post" action="cancel_order.asp">
+    <input type="hidden" name="OrderId" value="<% = orderId %>">
+    <input type="submit" value="Cancel Order">
+</form>
+</body></html>`;
+
+const ASP_ANN = {
+  8:1,               // Request.Form → ViewModel
+  11:2, 12:2,        // ADODB.Connection → EF Core
+  14:4, 15:4, 16:4,  // SQL concat → EF Core
+  23:4,              // SQL concat → EF Core
+  31:3,              // Session() → ISessionService
+  32:5,              // Response.Write → Razor
+  35:5, 36:5, 37:5,  // Response.Write → Razor
+  39:5, 40:5,        // Response.Write → Razor
+};
+
+const CTRL_CODE = `using Microsoft.AspNetCore.Mvc;
+using LegacyMigration.Services;
+using LegacyMigration.ViewModels;
+
+namespace LegacyMigration.Controllers;
+
+/// <summary>Migrated from: order_detail.asp (UI layer)</summary>
+public sealed class OrderController : Controller
+{
+    private readonly OrderService _orderService;
+    private readonly ILogger<OrderController> _logger;
+
+    public OrderController(OrderService orderService, ILogger<OrderController> logger)
+    {
+        _orderService = orderService;
+        _logger = logger;
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> Detail(int orderId)
+    {
+        try
+        {
+            var viewModel = await _orderService.GetOrderDetailViewModelAsync(orderId);
+            return View(viewModel);           // replaces all Response.Write(...)
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to load Order {OrderId}", orderId);
+            return NotFound();
+        }
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Cancel([FromForm] CancelOrderViewModel model)
+    {
+        if (!ModelState.IsValid)
+            return View("Detail",
+                await _orderService.GetOrderDetailViewModelAsync(model.OrderId));
+
+        await _orderService.CancelOrderAsync(model.OrderId, model.Reason ?? "User requested");
+        return RedirectToAction("Detail", new { orderId = model.OrderId });
+    }
+}`;
+
+const VM_CODE = `namespace LegacyMigration.ViewModels;
+
+/// <summary>
+/// Strongly-typed ViewModel for Order Detail page.
+/// Replaces: Request.Form("OrderId") and untyped rs.Fields() access.
+/// </summary>
+public sealed class OrderDetailViewModel
+{
+    public int OrderId { get; set; }
+    public string CustomerName { get; set; } = string.Empty;
+    public string Status { get; set; } = string.Empty;
+    public decimal Total { get; set; }
+    public bool IsAdmin { get; set; }         // replaces Session("UserRole") check
+    public List<OrderItemViewModel> Items { get; set; } = new();
+}
+
+public sealed class OrderItemViewModel
+{
+    public string ProductName { get; set; } = string.Empty;
+    public decimal Price { get; set; }
+    public int Quantity { get; set; }
+    public decimal LineTotal => Price * Quantity;
+}
+
+public sealed class CancelOrderViewModel
+{
+    public int OrderId { get; set; }
+    public string? Reason { get; set; }
+}`;
+
+const VIEW_CODE = `@model LegacyMigration.ViewModels.OrderDetailViewModel
+@* Migrated from: order_detail.asp  —  Replaces all Response.Write(...) *@
+
+@{ ViewData["Title"] = $"Order #{Model.OrderId}"; }
+
+<h1>Order Detail</h1>
+
+@if (Model.IsAdmin)
+{
+    <div class="admin-banner">
+        <strong>Admin View</strong> — Customer: @Model.CustomerName
+    </div>
+}
+
+<dl>
+    <dt>Order ID</dt>   <dd>@Model.OrderId</dd>
+    <dt>Customer</dt>   <dd>@Model.CustomerName</dd>
+    <dt>Status</dt>     <dd><span class="badge">@Model.Status</span></dd>
+    <dt>Total</dt>      <dd>@Model.Total.ToString("C")</dd>
+</dl>
+
+<h2>Items</h2>
+<ul>
+    @foreach (var item in Model.Items)
+    {
+        <li>@item.ProductName — @item.Price.ToString("C")
+            × @item.Quantity = @item.LineTotal.ToString("C")</li>
+    }
+</ul>
+
+<form asp-action="Cancel" asp-controller="Order" method="post">
+    @Html.AntiForgeryToken()
+    <input type="hidden" asp-for="OrderId" />
+    <button type="submit" class="btn-danger">Cancel Order</button>
+</form>`;
+
+const ASP_CHANGES = [
+  { id:1, from:'Request.Form("OrderId") — untyped', to:'[FromForm] CancelOrderViewModel — strongly typed', why:'Binding validation, model state, IntelliSense, and compile-time safety', cls:'ab1' },
+  { id:2, from:'ADODB.Connection / DSN', to:'AppDbContext injected via constructor', why:'EF Core handles connection pooling, migrations, and dispose lifecycle', cls:'ab2' },
+  { id:3, from:'Session("UserRole") direct access', to:'Model.IsAdmin via ISessionService', why:'Session abstracted behind service interface — testable and permission-audited', cls:'ab3' },
+  { id:4, from:'"SELECT ... WHERE Id=" & orderId', to:'_context.Orders.FindAsync(orderId)', why:'EF Core parameterised query — eliminates SQL injection, adds type checking', cls:'ab4' },
+  { id:5, from:'Response.Write("<p>..." & var)', to:'@Model.CustomerName (Razor binding)', why:'View engine handles HTML encoding — prevents XSS, separates logic from markup', cls:'ab5' },
+];
+
+// ═══════════════════════════════════════════════════════════════
+// RENDER HELPERS
+// ═══════════════════════════════════════════════════════════════
+
+function renderAnnotated(preEl, code, annMap) {
+  preEl.innerHTML = '';
+  const lines = code.split('\n');
+  lines.forEach((line, i) => {
+    const lineNum = i + 1;
+    const annId = annMap[lineNum];
+    const span = document.createElement('span');
+    span.className = 'cline' + (annId ? ` a${annId}` : '');
+    span.textContent = line + '\n';
+    if (annId) {
+      const b = document.createElement('span');
+      b.className = `ann-badge ab${annId}`;
+      b.textContent = annId;
+      span.appendChild(b);
+    }
+    preEl.appendChild(span);
+  });
+}
+
+function renderChanges(containerId, changes) {
+  const el = document.getElementById(containerId);
+  el.innerHTML = changes.map(c => `
+    <div class="change-card">
+      <div class="change-badge ${c.cls}">${c.id}</div>
+      <div class="change-body">
+        <div class="cb-from">&#10006; ${c.from}</div>
+        <div class="cb-arrow">&#8595; replaced by</div>
+        <div class="cb-to">&#10003; ${c.to}</div>
+        <div class="cb-why">${c.why}</div>
+      </div>
+    </div>`).join('');
+}
+
+function highlightCS(code) {
+  let h = escHtml(code);
+  h = h.replace(/(\/\/[^\n]*)/g, '<span class="cm">$1</span>');
+  h = h.replace(/(@\*[\s\S]*?\*@)/g, '<span class="cm">$1</span>');
+  h = h.replace(/(&quot;[^&\n]*?&quot;)/g, '<span class="st">$1</span>');
+  h = h.replace(/(\[(?:HttpGet|HttpPost|ValidateAntiForgeryToken|FromForm|FromRoute|Route|HttpPut|HttpDelete)[^\]]*\])/g, '<span class="at">$1</span>');
+  ['using','namespace','public','private','protected','sealed','static','readonly','override','async','await','return','var','new','throw','try','catch','finally','if','else','foreach','for','in','true','false','null','void','class','interface','record'].forEach(k => {
+    h = h.replace(new RegExp('\\b(' + k + ')\\b', 'g'), '<span class="kw">$1</span>');
+  });
+  ['Task','string','int','bool','decimal','long','List','ILogger','IActionResult','Exception','DateTime','Guid'].forEach(t => {
+    h = h.replace(new RegExp('\\b(' + t + ')\\b', 'g'), '<span class="ty">$1</span>');
+  });
+  return h;
+}
+
+function escHtml(s) {
+  return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// PIPELINE — STAGES
+// ═══════════════════════════════════════════════════════════════
+
+const STAGES = [
+  { n:1, title:'Decompose', desc:'Split legacy files into atomic units (one Sub or layer per JSON file).', out:'5 JSON units', icon:'&#128269;' },
+  { n:2, title:'Context', desc:'Add rulebook (CLAUDE.md), live schema, and slash command per unit.', out:'5 context packages', icon:'&#128230;' },
+  { n:3, title:'Generate', desc:'AI executes slash command with context → produces typed C# files.', out:'5 C# output files', icon:'&#9881;' },
+  { n:4, title:'Validate', desc:'Automated referee scans for critical patterns (SQL injection, bare catch, dynamic…).', out:'Validation reports', icon:'&#128737;' },
+  { n:5, title:'Recover', desc:'Reads structured reports → applies surgical targeted fixes. Flags what needs engineer review.', out:'Fixed or escalated', icon:'&#128295;' },
+];
+
+let stageState = ['idle','idle','idle','idle','idle'];
+
+function buildStageFlow() {
+  const el = document.getElementById('stageFlow');
+  el.innerHTML = STAGES.map((s,i) =>
+    `<div class="stage-card s-${stageState[i]}" id="sc-${i}">
+       <div class="stage-num">${s.icon}</div>
+       <div class="stage-title">${s.n}. ${s.title}</div>
+       <div class="stage-desc">${s.desc}</div>
+       <div class="stage-output">&#8594; ${s.out}</div>
+     </div>
+     ${i<4?'<div class="stage-arrow">&#10145;</div>':''}`
+  ).join('');
+}
+
+function buildProgStrip() {
+  const strip = document.getElementById('progStrip');
+  const labels = document.getElementById('progLabels');
+  let sh = '', lh = '';
+  STAGES.forEach((s,i) => {
+    sh += `<div class="prog-dot ${stageState[i]}" id="pd-${i}"></div>`;
+    if (i<4) sh += `<div class="prog-line-seg ${stageState[i]==='done'?'done':''}" id="pl-${i}"></div>`;
+    lh += `<div class="prog-lbl">${s.title}</div>`;
+  });
+  strip.innerHTML = sh;
+  labels.innerHTML = lh;
+}
+
+function updateStageVis(idx, state) {
+  stageState[idx] = state;
+  const card = document.getElementById('sc-' + idx);
+  if (card) { card.className = 'stage-card s-' + state; }
+  const dot = document.getElementById('pd-' + idx);
+  if (dot) { dot.className = 'prog-dot ' + state; }
+  if (idx > 0) {
+    const line = document.getElementById('pl-' + (idx-1));
+    if (line && state === 'done') line.classList.add('done');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// PIPELINE RUN
+// ═══════════════════════════════════════════════════════════════
+
+let lastLogLen = 0;
+let pollTimer = null;
+
+function startRun(demo) {
+  ['btnRun','btnDemo'].forEach(id => document.getElementById(id).disabled = true);
+  document.getElementById('sbStatus').textContent = demo ? 'Running (demo)…' : 'Running…';
+  document.getElementById('sbStatus').className = 'act';
+  stageState = ['idle','idle','idle','idle','idle'];
+  lastLogLen = 0;
+  buildStageFlow();
+  buildProgStrip();
+  document.getElementById('logBox').innerHTML = '';
+
+  fetch('/api/run', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({demo})
+  }).then(() => {
+    if (pollTimer) clearInterval(pollTimer);
+    pollTimer = setInterval(poll, 350);
+  });
+}
+
+function detectStageFromLine(line) {
+  const up = line.toUpperCase();
+  const markers = [
+    ['EXTRACTOR','STAGE 1'],
+    ['ASSEMBLER','STAGE 2'],
+    ['GENERATOR','STAGE 3'],
+    ['VALIDATION','STAGE 4'],
+    ['RECOVERY','STAGE 5'],
+  ];
+  markers.forEach(([a,b],i) => {
+    if ((up.includes(a) || up.includes(b)) && stageState[i]==='idle') {
+      for(let j=0;j<i;j++) if(stageState[j]==='active') updateStageVis(j,'done');
+      updateStageVis(i,'active');
+    }
+  });
+  const doneMap = [
+    ['STAGE 1 COMPLETE',0],['STAGE 2 COMPLETE',1],['STAGE 3 COMPLETE',2],
+    ['VALIDATION SUMMARY',3],['RECOVERY SUMMARY',4],['PIPELINE RUN COMPLETE',4],
+  ];
+  doneMap.forEach(([m,i]) => { if(up.includes(m)) updateStageVis(i,'done'); });
+}
+
+function classifyLine(line) {
+  if (line.includes('COMPLETE')||line.includes('PASSED')||line.includes('✓')||line.includes('✅')) return 'ok';
+  if (line.includes('BLOCKED')||line.includes('🚫')||line.includes('❌')||line.includes('CRITICAL')||line.includes('failed')) return 'err';
+  if (line.includes('⚠')||line.includes('WARNING')||line.includes('[HIGH]')||line.includes('[MEDIUM]')) return 'warn';
+  if (line.includes('===')||line.includes('███')||line.trim().startsWith('STAGE')||line.includes('STAGE ')) return 'head';
+  if (!line.trim()) return 'dim';
+  return 'def';
+}
+
+function poll() {
+  fetch('/api/log').then(r=>r.json()).then(data => {
+    const newLines = data.log.slice(lastLogLen);
+    lastLogLen = data.log.length;
+    const box = document.getElementById('logBox');
+    newLines.forEach(line => {
+      if (!line.trim()) return;
+      detectStageFromLine(line);
+      const d = document.createElement('div');
+      d.className = 'll ' + classifyLine(line);
+      d.textContent = line;
+      box.appendChild(d);
+    });
+    if (newLines.length) box.scrollTop = box.scrollHeight;
+
+    if (!data.running && data.log.length > 0) {
+      clearInterval(pollTimer); pollTimer = null;
+      stageState = stageState.map(s => s==='active'?'done':s);
+      buildStageFlow(); buildProgStrip();
+      document.getElementById('sbStatus').textContent = 'Complete';
+      document.getElementById('sbStatus').className = 'ok';
+      ['btnRun','btnDemo'].forEach(id => document.getElementById(id).disabled = false);
+      loadFiles(); loadReports();
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// FILES
+// ═══════════════════════════════════════════════════════════════
+
+function loadFiles() {
+  fetch('/api/files').then(r=>r.json()).then(files => {
+    document.getElementById('sbFiles').textContent = files.length;
+    const sb = document.getElementById('fileSidebar');
+    if (!files.length) { sb.innerHTML = '<div style="padding:12px 14px;font-size:12px;color:#484f58;font-style:italic">No files yet</div>'; return; }
+    sb.innerHTML = files.map(f => {
+      const name = f.split('/').pop();
+      const ext = name.split('.').pop();
+      const icon = ext==='cs'?'&#128998;':ext==='cshtml'?'&#127760;':ext==='json'?'&#128203;':'&#128196;';
+      return `<div class="file-entry" onclick="openFile('${f}',this)" title="${f}">
+        <span class="fe-icon">${icon}</span>${name}
+      </div>`;
+    }).join('');
+  });
+}
+
+function openFile(path, el) {
+  document.querySelectorAll('.file-entry').forEach(e=>e.classList.remove('sel'));
+  if(el) el.classList.add('sel');
+  document.getElementById('fvTopbar').textContent = path;
+  document.getElementById('fvEmpty').style.display = 'none';
+  const pre = document.getElementById('fvPre');
+  pre.style.display = 'block';
+  pre.innerHTML = 'Loading…';
+  fetch('/api/file?path=' + encodeURIComponent(path)).then(r=>r.json()).then(data => {
+    const ext = path.split('.').pop();
+    if (ext==='cs' || ext==='cshtml') {
+      pre.innerHTML = highlightCS(data.content);
+    } else {
+      pre.textContent = data.content;
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// VALIDATION REPORTS
+// ═══════════════════════════════════════════════════════════════
+
+function loadReports() {
+  fetch('/api/reports').then(r=>r.json()).then(reports => {
+    const passed = reports.filter(r=>r.status==='PASSED').length;
+    const blocked = reports.filter(r=>r.status==='BLOCKED').length;
+    document.getElementById('sbPass').textContent = passed;
+    document.getElementById('sbBlock').textContent = blocked;
+
+    const el = document.getElementById('valCards');
+    if (!reports.length) {
+      el.innerHTML = '<div class="val-empty"><div class="ve-icon">&#128269;</div><div>Run the pipeline to generate reports.</div></div>';
+      return;
+    }
+    el.innerHTML = reports.map(r => {
+      const cnt = r.issue_count || {};
+      const fname = (r.file||'').split(/[\\/]/).pop();
+      const issues = (r.issues||[]).map(i => `
+        <div class="val-issue">
+          <span class="sev-badge ${i.severity}">${i.severity}</span>
+          <div class="vi-content">
+            <div class="vi-desc">${escHtml(i.description)}</div>
+            <div class="vi-fix">&#128295; ${escHtml(i.fix_hint)}</div>
+            <code class="vi-line">Line ${i.line_number}: ${escHtml(i.line_content)}</code>
+          </div>
+        </div>`).join('');
+      return `<div class="val-card">
+        <div class="val-card-head">
+          <span class="vc-file">${fname}</span>
+          <span class="vc-counts">C:${cnt.CRITICAL||0} H:${cnt.HIGH||0} M:${cnt.MEDIUM||0}</span>
+          <span class="val-badge ${r.status==='PASSED'?'pass':'block'}">${r.status}</span>
+        </div>
+        ${issues || '<div style="padding:10px 18px;color:#3fb950;font-size:13px">&#10003; No issues found</div>'}
+      </div>`;
+    }).join('');
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// PAGE NAVIGATION
+// ═══════════════════════════════════════════════════════════════
+
+const PAGE_IDS = ['pipeline','vbs','asp','validate','files'];
+
+function showPage(name) {
+  PAGE_IDS.forEach(id => {
+    document.getElementById('page-' + id).classList.toggle('on', id===name);
+  });
+  document.querySelectorAll('.nav-tab').forEach((t,i) => {
+    t.classList.toggle('on', PAGE_IDS[i]===name);
+  });
+  if (name==='validate') loadReports();
+  if (name==='files') loadFiles();
+}
+
+function showOutTab(el, key) {
+  document.querySelectorAll('.out-tab').forEach(t=>t.classList.remove('on'));
+  el.classList.add('on');
+  document.querySelectorAll('.out-panel').forEach(p=>p.classList.remove('on'));
+  document.getElementById('out-' + key).classList.add('on');
+  const titles = {ctrl:'Controller', vm:'ViewModel', view:'Razor View'};
+  const files = {ctrl:'OrderController.cs', vm:'OrderDetailViewModel.cs', view:'Detail.cshtml'};
+  document.getElementById('outPaneFile').textContent = files[key];
+}
+
+// ═══════════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════════
+
+// Build pipeline page
+buildStageFlow();
+buildProgStrip();
+
+// Render VBScript transform
+renderAnnotated(document.getElementById('vbsPre'), VBS_CODE, VBS_ANN);
+renderAnnotated(document.getElementById('csPre'),  CS_CODE,  CS_ANN);
+renderChanges('vbsChanges', VBS_CHANGES);
+
+// Render ASP transform
+renderAnnotated(document.getElementById('aspPre'), ASP_CODE, ASP_ANN);
+
+// Render output files with syntax highlighting
+function renderHighlighted(elId, code) {
+  const el = document.getElementById(elId);
+  el.innerHTML = highlightCS(code);
+}
+renderHighlighted('ctrlPre', CTRL_CODE);
+renderHighlighted('vmPre', VM_CODE);
+renderHighlighted('viewPre', VIEW_CODE);
+renderChanges('aspChanges', ASP_CHANGES);
+
+// Load any already-existing files/reports
+loadFiles();
+loadReports();
+</script>
+</body>
+</html>

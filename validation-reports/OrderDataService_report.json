@@ -1,0 +1,11 @@
+{
+  "file": "output\\Services\\OrderDataService.cs",
+  "status": "PASSED",
+  "issues": [],
+  "checked_at": "2026-05-23T22:36:52.855384",
+  "issue_count": {
+    "CRITICAL": 0,
+    "HIGH": 0,
+    "MEDIUM": 0
+  }
+}

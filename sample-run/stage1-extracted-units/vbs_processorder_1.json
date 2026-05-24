@@ -1,0 +1,15 @@
+{
+  "unit_id": "vbs_processorder_1",
+  "source_file": "legacy\\vbscript\\ProcessOrder.vbs",
+  "unit_type": "Sub",
+  "name": "ProcessOrder",
+  "legacy_code": "Sub ProcessOrder(orderId, customerId, amount)\n    Dim rs\n    On Error Resume Next\n    \n    conn.Execute \"UPDATE Orders SET Status='Processing' WHERE Id=\" & orderId\n    \n    If Err.Number <> 0 Then\n        MsgBox \"Error processing order\"\n        Err.Clear\n    End If\n    \n    ' Update customer balance\n    conn.Execute \"UPDATE Customers SET Balance=Balance-\" & amount & \" WHERE Id=\" & customerId\n    \n    Set rs = Nothing\nEnd Sub",
+  "metadata": {
+    "com_objects_detected": [],
+    "sql_patterns_detected": 2,
+    "has_error_handling": true,
+    "has_sql_injection_risk": false
+  },
+  "migration_target": "public async Task ProcessOrderAsync(...) in OrderService.cs",
+  "extracted_at": "2026-05-23T22:36:52.022900"
+}
