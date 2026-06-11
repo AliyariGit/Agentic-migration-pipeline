@@ -2,6 +2,8 @@
 
 A complete, runnable demonstration of a **governed five-stage agentic pipeline** that migrates VBScript and Classic ASP to .NET Core.
 
+![Agentic Migration Pipeline Dashboard](docs/demo-screenshot.png)
+
 ---
 
 ## Prerequisites
