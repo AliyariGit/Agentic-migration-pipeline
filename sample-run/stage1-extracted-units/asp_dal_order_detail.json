@@ -13,5 +13,5 @@
   "injection_risks": [],
   "migration_target": "EF Core DbContext \u2014 AppDbContext.Orders, AppDbContext.OrderItems",
   "slash_command": "/modernize-asp-dal",
-  "extracted_at": "2026-05-23T22:36:52.027007"
+  "extracted_at": "2026-06-11T00:26:18.635148"
 }

@@ -10,5 +10,5 @@
   "warnings": [
     "Business logic detected in view layer \u2014 will be moved to Controller/Service during migration"
   ],
-  "extracted_at": "2026-05-23T22:36:52.027260"
+  "extracted_at": "2026-06-11T00:26:18.635248"
 }

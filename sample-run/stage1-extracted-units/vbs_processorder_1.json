@@ -11,5 +11,5 @@
     "has_sql_injection_risk": false
   },
   "migration_target": "public async Task ProcessOrderAsync(...) in OrderService.cs",
-  "extracted_at": "2026-05-23T22:36:52.022900"
+  "extracted_at": "2026-06-11T00:26:18.634285"
 }

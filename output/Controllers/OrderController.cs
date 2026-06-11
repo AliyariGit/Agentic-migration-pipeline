@@ -7,7 +7,7 @@ namespace LegacyMigration.Controllers;
 /// <summary>
 /// Handles order detail views and order actions.
 /// Migrated from: legacy/classic-asp/order_detail.asp (UI layer)
-/// Migration date: 2026-05-23
+/// Migration date: 2026-06-11
 /// </summary>
 public sealed class OrderController : Controller
 {

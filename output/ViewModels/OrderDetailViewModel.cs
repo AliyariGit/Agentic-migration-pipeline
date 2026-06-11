@@ -3,7 +3,7 @@ namespace LegacyMigration.ViewModels;
 /// <summary>
 /// Strongly-typed ViewModel for the Order Detail page.
 /// Replaces: Request.Form("OrderId") and loose rs.Fields() access
-/// Migration date: 2026-05-23
+/// Migration date: 2026-06-11
 /// </summary>
 public sealed class OrderDetailViewModel
 {

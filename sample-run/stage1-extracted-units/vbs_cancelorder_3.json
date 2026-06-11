@@ -11,5 +11,5 @@
     "has_sql_injection_risk": false
   },
   "migration_target": "public async Task CancelOrderAsync(...) in OrderService.cs",
-  "extracted_at": "2026-05-23T22:36:52.023017"
+  "extracted_at": "2026-06-11T00:26:18.634341"
 }

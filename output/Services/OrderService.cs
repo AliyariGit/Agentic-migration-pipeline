@@ -6,7 +6,7 @@ namespace LegacyMigration.Services;
 /// <summary>
 /// Handles order processing operations.
 /// Migrated from: legacy/vbscript/ProcessOrder.vbs
-/// Migration date: 2026-05-23
+/// Migration date: 2026-06-11
 /// </summary>
 public sealed class OrderService
 {

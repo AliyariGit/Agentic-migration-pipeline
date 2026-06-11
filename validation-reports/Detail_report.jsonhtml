@@ -11,7 +11,7 @@
       "fix_hint": "Move output to .cshtml view using @Model.Property syntax"
     }
   ],
-  "checked_at": "2026-05-23T22:36:52.876813",
+  "checked_at": "2026-06-11T00:26:19.000554",
   "issue_count": {
     "CRITICAL": 0,
     "HIGH": 1,
