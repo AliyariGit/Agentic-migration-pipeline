@@ -18,6 +18,7 @@ A governed, five-stage pipeline that autonomously migrates legacy VBScript and C
 10. [Web UI Dashboard](#10-web-ui-dashboard)
 11. [Key Data Schemas](#11-key-data-schemas)
 12. [Running the Pipeline](#12-running-the-pipeline)
+13. [Automation Deep-Dive — Classes, Functions & Technology](#13-automation-deep-dive--classes-functions--technology)
 
 ---
 
@@ -576,3 +577,222 @@ python agents/recovery_agent.py
 
 - Python 3.11+
 - Standard library only — no `pip install` needed
+
+---
+
+## 13. Automation Deep-Dive — Classes, Functions & Technology
+
+### Technology Stack
+
+**No LangChain. No LangGraph. No AutoGen. No CrewAI.**
+
+This pipeline uses **pure Python standard library only** — `re`, `json`, `os`, `glob`, `subprocess`, `dataclasses`, `pathlib`, `datetime`. Zero external dependencies, zero `pip install`. The architecture deliberately avoids agent frameworks to show the underlying mechanics clearly.
+
+The Claude API **is referenced** as the production path (in `generator.py` there is a comment block showing `anthropic.Anthropic()` usage), but in this demo it is **not called** — the generator uses static templates to simulate what a Claude API call would return.
+
+To wire in the real API at Stage 3:
+
+```python
+import anthropic
+
+client = anthropic.Anthropic()  # reads ANTHROPIC_API_KEY from env
+
+response = client.messages.create(
+    model="claude-sonnet-4-6",
+    max_tokens=4000,
+    system=context_package["rulebook"],           # CLAUDE.md as system prompt
+    messages=[{
+        "role": "user",
+        "content": context_package["agent_instructions"]  # slash command + unit
+    }]
+)
+generated_code = response.content[0].text
+```
+
+---
+
+### Orchestrator — `run_pipeline.py`
+
+**`banner(stage_num, title, description)`**
+Prints a formatted stage header to stdout. Visual only.
+
+**`cleanup()`**
+Wipes `sample-run/`, `output/`, and `validation-reports/` using `shutil.rmtree` at the start of every run for a clean slate.
+
+**`run_stage(script, extra_args=[]) → bool`**
+The core sequencing mechanism. Spawns each agent as a child process:
+```python
+cmd = [sys.executable, script] + extra_args
+result = subprocess.run(cmd, cwd=os.path.dirname(os.path.abspath(__file__)))
+return result.returncode == 0
+```
+Stages 1–3 hard-stop the pipeline on failure (`sys.exit(1)`). Stages 4–5 are fire-and-continue — validation is expected to find issues, and recovery handles them. The `--demo` flag is forwarded to Stage 4 as `--inject-failure`.
+
+**`main()`**
+Reads `sys.argv` for `--demo`, records `datetime.now()` for elapsed time, calls `cleanup()` then sequences all 5 stages. Prints a final summary of all files produced.
+
+---
+
+### Stage 1 — `extractor_agent.py`
+
+Automation mechanism: **regex-based structural parsing**. No AI involved.
+
+**`extract_vbscript_units(filepath) → list[dict]`**
+
+Single regex captures every Sub/Function block across multiple lines:
+```python
+pattern = r"((?:Sub|Function)\s+\w+.*?End\s+(?:Sub|Function))"
+matches = re.findall(pattern, content, re.DOTALL | re.IGNORECASE)
+```
+`re.DOTALL` makes `.` match newlines so multi-line blocks are captured whole. For each match, three more regexes classify the block:
+- `CreateObject\("([^"]+)"\)` — detects COM objects (need DI replacement)
+- `(?:Execute|Open)\s*"([^"]*(?:SELECT|UPDATE|INSERT|DELETE)[^"]*)"` — detects SQL literals; checks for `&` concatenation to flag injection risk
+- Plain string search `"On Error" in block` — detects error handling presence
+
+**`extract_asp_units(filepath) → list[dict]`**
+
+Splits one `.asp` file into exactly two units by architectural layer:
+- **DAL unit**: SQL blocks (`conn.Execute`/`.Open` with SELECT/UPDATE/INSERT/DELETE), `Request.Form("x")` inputs, `Session("x")` accesses
+- **UI unit**: count of `Response.Write(...)` calls, HTML blocks, `business_logic_in_view` boolean (true if Session access detected in view)
+
+**`save_units(units, output_dir)`**
+Writes each unit dict to `sample-run/stage1-extracted-units/{unit_id}.json` with `json.dump(..., indent=2)`.
+
+**`run_extractor()`**
+Entry point. Uses `Path("legacy/vbscript").glob("*.vbs")` and `Path("legacy/classic-asp").glob("*.asp")` to discover inputs dynamically — adding new legacy files to those folders is all that's needed to extend the pipeline.
+
+---
+
+### Stage 2 — `context_assembler.py`
+
+Automation mechanism: **context construction** — packaging everything a code generator needs into one self-contained JSON per unit.
+
+**`MCP_SCHEMA` (module-level dict)**
+Simulates a live MCP (Model Context Protocol) server. Defines four EF Core entities (`Order`, `Customer`, `OrderItem`, `AuditLog`) with table names, typed property definitions, and `DbSet` declarations. Prevents the generator from hallucinating column or table names. In production: replace `fetch_mcp_schema()` with an HTTP call.
+
+**`load_file(path) → str`**
+Reads `CLAUDE.md` and `migration-patterns.md` as raw strings to embed verbatim in the context package.
+
+**`fetch_mcp_schema(unit) → dict`**
+Simulated MCP call — returns `MCP_SCHEMA`. Production signature: `GET https://your-mcp-server/schema?context={unit_id}`.
+
+**`determine_slash_command(unit) → str`**
+Routes by unit type:
+- `unit_type in ["Sub", "Function"]` → `/map-vbscript-to-logic`
+- `layer == "DATA_ACCESS_LAYER"` → `/modernize-asp-dal`
+- `layer == "UI_RESPONSE_LAYER"` → `/modernize-asp-view`
+
+**`build_instructions(unit, slash_command) → str`**
+Generates the structured prompt that would be sent to Claude. Three branches by unit type, each producing a multiline string containing: slash command name, task description, numbered non-negotiable rules from CLAUDE.md, output file path, and per-unit metadata (detected COM objects, SQL injection risks, session-in-view warnings).
+
+**`assemble_context(unit) → dict`**
+Composes the final package: `slash_command` + `rulebook` + `migration_patterns` + `live_schema` + `target_unit` + `agent_instructions`. This is the single object passed to the generator (or Claude API in production).
+
+**`run_assembler()`**
+Entry point. Uses `glob.glob("sample-run/stage1-extracted-units/*.json")` to discover all units, calls `assemble_context()` on each, saves to `sample-run/stage2-context-packages/{unit_id}_context.json`.
+
+---
+
+### Stage 3 — `generator.py`
+
+Automation mechanism: **template routing** — in production, replaced by a Claude API call per context package.
+
+**Module-level string constants (the four output templates)**
+
+Each is a Python f-string with `{{}}` double-braces (to escape the C# braces from Python's `.format()`):
+
+| Constant | Produces |
+|----------|----------|
+| `VBSCRIPT_SERVICE_OUTPUT` | `sealed class OrderService` with `ProcessOrderAsync`, `GetOrderTotalAsync`, `CancelOrderAsync` |
+| `CONTROLLER_OUTPUT` | `sealed class OrderController` with `[HttpGet] Detail` and `[HttpPost] Cancel` |
+| `VIEWMODEL_OUTPUT` | Three `sealed` classes: `OrderDetailViewModel`, `OrderItemViewModel`, `CancelOrderViewModel` |
+| `RAZOR_VIEW_OUTPUT` | `@model OrderDetailViewModel` Razor view with `@if`, `@foreach`, tag helpers |
+
+**`run_generator()`**
+Entry point. Reads context packages via `glob.glob`, extracts `slash_command`, routes to the correct template. The `/modernize-asp-view` route is special — it writes **three files** from one context package and uses `continue` to skip the single-file write path. All others write a single `.cs` file.
+
+---
+
+### Stage 4 — `enterprise_ai_validation_script.py`
+
+Automation mechanism: **line-by-line regex scanning** with dataclass-based severity classification. Entirely rule-based, no AI.
+
+**`@dataclass ValidationIssue`**
+Fields: `severity`, `pattern_id`, `description`, `line_number`, `line_content`, `fix_hint`. The `@dataclass` decorator auto-generates `__init__`, `__repr__`, `__eq__`. `dataclasses.asdict()` converts it to a plain dict for JSON serialization without a custom encoder.
+
+**`@dataclass ValidationReport`**
+Fields: `file`, `status` (`PASSED | BLOCKED`), `issues` (list of dicts), `checked_at`, `issue_count` dict.
+
+**`VALIDATION_RULES` (module-level list)**
+9 tuples of `(pattern_id, regex, severity, description, fix_hint)`. The `fix_hint` field is the machine-readable instruction passed directly to the recovery agent — it closes the feedback loop between Stages 4 and 5.
+
+| Severity | Rules | Blocking? |
+|----------|-------|-----------|
+| CRITICAL | `sql_string_concatenation`, `bare_catch_block`, `dynamic_keyword` | Yes |
+| HIGH | `session_direct_access`, `response_write`, `non_sealed_service`, `synchronous_db_call` | Yes |
+| MEDIUM | `untyped_variable`, `missing_null_check` | No (flagged only) |
+
+**`validate_file(filepath) → ValidationReport`**
+Reads file with `f.readlines()`, loops `enumerate(lines, start=1)`, tests every line against every rule with `re.search(regex, line, re.IGNORECASE)`. Builds a `ValidationIssue` on each match. Status is `BLOCKED` if any CRITICAL or HIGH count > 0.
+
+**`inject_failure_for_demo(filepath)`**
+Appends three deliberately broken methods to the first `.cs` file when `--inject-failure` is passed. Injects: empty `catch {}`, synchronous `.Find(id)`, `dynamic result`, `Session["UserId"]`, and SQL string concatenation. This is how demo mode proves the validator catches real violations.
+
+**`print_report(report)`**
+Formats report to stdout with emoji severity icons (🔴 CRITICAL / 🟠 HIGH / 🟡 MEDIUM).
+
+**`save_report(report, output_dir)`**
+Serializes the `ValidationReport` dataclass to JSON via `asdict()` and writes to `validation-reports/{filename}_report.json`. This file is read directly by Stage 5.
+
+---
+
+### Stage 5 — `recovery_agent.py`
+
+Automation mechanism: **surgical regex replacement** keyed by `pattern_id`. No full regeneration — only the flagged pattern in the flagged file is touched.
+
+**`FIX_HANDLERS` (module-level dict)**
+Maps `pattern_id → function`. Six handlers:
+
+**`fix_bare_catch_block(content, issue) → str`**
+Two `re.sub` calls — one for `catch { }`, one for `catch (Exception ...) { }`. Both replace with a proper block containing `_logger.LogError(ex, ...)` and `throw`.
+
+**`fix_dynamic_keyword(content, issue) → str`**
+`re.sub(r'\bdynamic\b', 'object /* TODO: Replace with explicit type per CLAUDE.md */', content)` — word-boundary match ensures only the keyword is replaced, not substrings. Safe intermediate step; flags for engineer follow-up.
+
+**`fix_session_direct_access(content, issue) → str`**
+`re.sub(r'Session\["(\w+)"\]', r'_sessionService.Get("\1") /* Injected: ISessionService */', content)` — capture group `(\w+)` preserves the key name in the replacement.
+
+**`fix_synchronous_db_call(content, issue) → str`**
+Five `re.sub` calls to append `Async` suffix (`.Find(` → `.FindAsync(`, `.First(` → `.FirstOrDefaultAsync(`, etc.), then one lookahead-based sub to prepend `await ` to any `_context.X.XAsync(...)` not already preceded by `await`.
+
+**`fix_non_sealed_service(content, issue) → str`**
+`re.sub(r'public\s+class\s+(\w+Service)\b', r'public sealed class \1', content)` — capture group preserves the class name.
+
+**`fix_response_write(content, issue) → str`**
+Wraps the call in a TODO comment rather than deleting it. Cannot auto-fix because the Razor equivalent depends on the view structure — the one handler that flags for manual review instead of resolving automatically.
+
+**`apply_fixes(filepath, issues) → (str, list)`**
+Reads file content, deduplicates `pattern_id` values with `set()` (avoids running the same fix twice), calls each handler, detects actual content change by comparing before/after strings, returns fixed content and list of applied fix IDs.
+
+**`rerun_validation(filepath) → ValidationReport`**
+Imports `validate_file` and `save_report` directly from `enterprise_ai_validation_script` using `sys.path.insert(0, os.path.dirname(__file__))` and a Python import — runs validation in-process on the fixed file and overwrites the original report. This is the closed-loop re-check.
+
+**`run_recovery()`**
+Entry point. Reads all `validation-reports/*_report.json`, filters for `status == "BLOCKED"`, calls `apply_fixes()` on each, saves fixed content, calls `rerun_validation()`, saves a recovery log to `sample-run/stage5-recovery-logs/{filename}_recovery.json`.
+
+---
+
+### What's Automated vs. What's Simulated
+
+| Concern | Status | Mechanism |
+|---------|--------|-----------|
+| Stage sequencing | **Automated** | `subprocess.run` in `run_stage()` |
+| Legacy code parsing | **Automated** | `re.findall` / `re.search` with `re.DOTALL` |
+| Context assembly | **Automated** | File reads + dict composition |
+| Schema injection | **Simulated** | `MCP_SCHEMA` dict (production: HTTP call to MCP server) |
+| C# code generation | **Simulated** | String templates (production: Claude API call) |
+| Validation scanning | **Automated** | Line-by-line regex against 9 rules + `@dataclass` reports |
+| Failure injection (demo) | **Automated** | `inject_failure_for_demo()` appends bad code blocks |
+| Surgical fix application | **Automated** | Per-`pattern_id` `re.sub` handlers in `FIX_HANDLERS` |
+| Re-validation after fix | **Automated** | Direct Python import + in-process `validate_file()` call |
+| File discovery | **Automated** | `glob.glob` with recursive patterns |
