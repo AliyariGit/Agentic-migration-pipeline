@@ -1,0 +1,117 @@
+<div class="selector-page">
+
+  <!-- Header -->
+  <div class="page-header">
+    <div class="header-brand">
+      <span class="brand-icon">⚡</span>
+      <div>
+        <div class="brand-name">Agentic Migration Pipeline</div>
+        <div class="brand-sub">Legacy Code → Modern Architecture</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Stepper -->
+  <div class="stepper">
+    @for (step of [1,2,3]; track step) {
+      <div class="step" [class.active]="svc.currentStep() === step"
+                        [class.done]="svc.currentStep() > step"
+                        (click)="svc.currentStep() > step ? svc.goToStep($any(step)) : null">
+        <div class="step-circle">
+          @if (svc.currentStep() > step) { ✓ } @else { {{ step }} }
+        </div>
+        <div class="step-label">
+          @switch (step) {
+            @case (1) { Choose Source }
+            @case (2) { Choose Target }
+            @case (3) { Confirm & Run }
+          }
+        </div>
+      </div>
+      @if (step < 3) {
+        <div class="step-line" [class.done]="svc.currentStep() > step"></div>
+      }
+    }
+  </div>
+
+  <!-- ═══ STEP 1 — SOURCE ═══ -->
+  @if (svc.currentStep() === 1) {
+    <div class="step-content">
+      <div class="step-intro">
+        <h2>What are you migrating <span class="highlight">from</span>?</h2>
+        <p>Select the legacy technology you want to modernize.</p>
+      </div>
+      <div class="cards-grid">
+        @for (tech of sources; track tech.id) {
+          <app-tech-card [tech]="tech" [selected]="isSourceSelected(tech)"
+                         (picked)="pickSource($event)" />
+        }
+      </div>
+      <div class="step-actions">
+        <button class="btn btn-primary" [disabled]="!svc.canProceed()" (click)="svc.next()">
+          Continue →
+        </button>
+      </div>
+    </div>
+  }
+
+  <!-- ═══ STEP 2 — TARGET ═══ -->
+  @if (svc.currentStep() === 2) {
+    <div class="step-content">
+      <div class="step-intro">
+        <h2>What are you migrating <span class="highlight">to</span>?</h2>
+        <p>Choose the modern target architecture for the generated output.</p>
+        <div class="source-pill">
+          From: {{ svc.selectedSource()?.icon }} {{ svc.selectedSource()?.label }}
+        </div>
+      </div>
+      <div class="cards-grid">
+        @for (tech of targets; track tech.id) {
+          <app-tech-card [tech]="tech" [selected]="isTargetSelected(tech)"
+                         (picked)="pickTarget($event)" />
+        }
+      </div>
+      <div class="step-actions">
+        <button class="btn btn-ghost" (click)="svc.back()">← Back</button>
+        <button class="btn btn-primary" [disabled]="!svc.canProceed()" (click)="svc.next()">
+          Continue →
+        </button>
+      </div>
+    </div>
+  }
+
+  <!-- ═══ STEP 3 — CONFIRM ═══ -->
+  @if (svc.currentStep() === 3) {
+    <div class="step-content">
+      <div class="step-intro">
+        <h2>Review your <span class="highlight">migration path</span></h2>
+        <p>Confirm the conversion and launch the agentic pipeline.</p>
+      </div>
+
+      <!-- Flow diagram -->
+      <app-conversion-flow />
+
+      <!-- Rules reminder -->
+      <div class="rules-box">
+        <div class="rules-title">📋 Governance rules applied automatically</div>
+        <div class="rules-grid">
+          <div class="rule-item">✓ All service classes will be <code>sealed</code></div>
+          <div class="rule-item">✓ All DB calls will be <code>async / await</code></div>
+          <div class="rule-item">✓ Constructor injection only — no static calls</div>
+          <div class="rule-item">✓ SQL strings replaced with EF Core queries</div>
+          <div class="rule-item">✓ Session[] replaced with ISessionService</div>
+          <div class="rule-item">✓ Response.Write moved to Razor / template</div>
+        </div>
+      </div>
+
+      <div class="step-actions">
+        <button class="btn btn-ghost" (click)="svc.back()">← Back</button>
+        <button class="btn btn-ghost reset" (click)="svc.reset()">✕ Start Over</button>
+        <button class="btn btn-launch" (click)="startMigration()">
+          🚀 Launch Migration
+        </button>
+      </div>
+    </div>
+  }
+
+</div>

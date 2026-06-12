@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Agentic Migration Pipeline</title>
+<script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.8.2/angular.min.js"></script>
 <style>
 /* ── CSS Variables — Dark (default) ── */
 :root {
@@ -138,6 +139,24 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
 .btn-lg:disabled{opacity:.4;cursor:default}
 .btn-lg-run{background:#238636;color:#fff}
 .btn-lg-demo{background:#7b44d4;color:#fff}
+
+/* Migration picker */
+.migration-picker{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:18px 20px;margin-bottom:24px}
+.migration-picker-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:14px}
+.migration-picker-head h3{font-size:14px;color:var(--text);margin-bottom:4px}
+.migration-picker-head p{font-size:12px;color:var(--muted);line-height:1.5}
+.selected-pill{padding:6px 10px;border-radius:999px;background:var(--accent-bg);color:var(--accent);font-size:11px;font-weight:700;white-space:nowrap}
+.conversion-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.conversion-card{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px 14px;cursor:pointer;transition:border-color .2s,transform .2s,box-shadow .2s}
+.conversion-card:hover{border-color:var(--accent);transform:translateY(-1px)}
+.conversion-card.active{border-color:var(--accent);box-shadow:0 0 0 2px rgba(88,166,255,.16)}
+.conversion-icon{font-size:18px;margin-bottom:8px}
+.conversion-title{font-size:13px;font-weight:700;color:var(--text);margin-bottom:4px}
+.conversion-desc{font-size:11px;color:var(--muted);line-height:1.5;margin-bottom:8px}
+.conversion-badge{display:inline-block;padding:3px 8px;border-radius:999px;background:var(--accent-bg);color:var(--accent);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em}
+.conversion-summary{margin-top:12px;font-size:12px;color:var(--muted)}
+.conversion-summary strong{color:var(--text)}
+@media (max-width: 900px){.conversion-grid{grid-template-columns:1fr}}
 
 /* Progress dots */
 .prog-strip{display:flex;align-items:center;gap:0;margin-bottom:16px;padding:12px 0}
@@ -388,6 +407,25 @@ pre.fv-pre{padding:14px 18px;font-family:'Cascadia Code','Consolas',monospace;fo
       <button class="btn-lg btn-lg-run" id="btnRun" onclick="startRun(false)">&#9654; Run Pipeline</button>
       <button class="btn-lg btn-lg-demo" id="btnDemo" onclick="startRun(true)">&#129514; Demo Mode</button>
     </div>
+  </div>
+
+  <div class="migration-picker" ng-app="migrationApp" ng-controller="MigrationController">
+    <div class="migration-picker-head">
+      <div>
+        <h3>Choose the conversion path</h3>
+        <p>Select the legacy-to-modern migration scenario you want the pipeline to prepare for.</p>
+      </div>
+      <div class="selected-pill">{{ selected.title }}</div>
+    </div>
+    <div class="conversion-grid">
+      <div class="conversion-card" ng-repeat="option in conversionOptions" ng-class="{active: option.value === selected.value}" ng-click="selectConversion(option)">
+        <div class="conversion-icon">{{ option.icon }}</div>
+        <div class="conversion-title">{{ option.title }}</div>
+        <div class="conversion-desc">{{ option.desc }}</div>
+        <div class="conversion-badge">{{ option.badge }}</div>
+      </div>
+    </div>
+    <div class="conversion-summary">The next run will target <strong>{{ selected.title }}</strong>.</div>
   </div>
 
   <!-- Progress -->
@@ -1196,6 +1234,9 @@ let lastLogLen = 0;
 let pollTimer  = null;
 
 function startRun(demo) {
+  const migrationType = window.selectedMigrationType || 'vbscript-to-dotnet';
+  const migrationLabel = window.selectedMigrationLabel || 'VBScript → .NET Core C#';
+
   ['btnRun','btnDemo'].forEach(id => document.getElementById(id).disabled = true);
   document.getElementById('sbStatus').textContent = demo ? 'Running (demo)…' : 'Running…';
   document.getElementById('sbStatus').className = 'act';
@@ -1203,12 +1244,17 @@ function startRun(demo) {
   lastLogLen = 0;
   buildStageFlow();
   buildProgStrip();
-  document.getElementById('logBox').innerHTML = '';
+  const box = document.getElementById('logBox');
+  box.innerHTML = '';
+  const configLine = document.createElement('div');
+  configLine.className = 'll head';
+  configLine.textContent = `[CONFIG] Selected migration: ${migrationLabel}`;
+  box.appendChild(configLine);
 
   fetch('/api/run', {
     method:'POST',
     headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({demo})
+    body:JSON.stringify({demo, migrationType, migrationLabel})
   }).then(() => {
     if (pollTimer) clearInterval(pollTimer);
     pollTimer = setInterval(poll, 350);
@@ -1347,6 +1393,47 @@ function loadReports() {
     }).join('');
   });
 }
+
+// ═══════════════════════════════════════════════════════════════
+// ANGULAR MIGRATION PICKER
+// ═══════════════════════════════════════════════════════════════
+
+const migrationApp = angular.module('migrationApp', []);
+migrationApp.controller('MigrationController', function($scope) {
+  $scope.conversionOptions = [
+    {
+      value: 'aspx-to-angular',
+      title: 'ASPX → Angular + .NET',
+      desc: 'Modernize UI-heavy web forms into an Angular frontend and .NET Core services.',
+      badge: 'UI modernization',
+      icon: '🧩'
+    },
+    {
+      value: 'vbscript-to-dotnet',
+      title: 'VBScript → .NET Core C#',
+      desc: 'Translate legacy business logic into typed C# services with validation and recovery.',
+      badge: 'logic migration',
+      icon: '⚙️'
+    },
+    {
+      value: 'asp-to-mvc',
+      title: 'Classic ASP → ASP.NET MVC',
+      desc: 'Move server-rendered pages to MVC views with strongly-typed models and services.',
+      badge: 'web layer migration',
+      icon: '🌐'
+    }
+  ];
+
+  $scope.selected = $scope.conversionOptions[0];
+  window.selectedMigrationType = $scope.selected.value;
+  window.selectedMigrationLabel = $scope.selected.title;
+
+  $scope.selectConversion = function(option) {
+    $scope.selected = option;
+    window.selectedMigrationType = option.value;
+    window.selectedMigrationLabel = option.title;
+  };
+});
 
 // ═══════════════════════════════════════════════════════════════
 // PAGE NAVIGATION

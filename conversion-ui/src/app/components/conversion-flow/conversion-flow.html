@@ -1,0 +1,51 @@
+@if (svc.conversionPath(); as path) {
+  <div class="flow-banner">
+
+    <!-- Source -->
+    <div class="flow-node source">
+      <div class="fn-icon">{{ path.source.icon }}</div>
+      <div class="fn-label">{{ path.source.label }}</div>
+      <div class="fn-badge legacy">Legacy</div>
+    </div>
+
+    <!-- Arrow + stages -->
+    <div class="flow-middle">
+      <div class="flow-arrow">
+        <div class="arrow-line"></div>
+        <div class="arrow-stages">
+          @for (stage of path.stages; track stage; let i = $index) {
+            <div class="arrow-stage">
+              <span class="stage-dot">{{ i + 1 }}</span>
+              <span class="stage-name">{{ stage }}</span>
+            </div>
+          }
+        </div>
+        <div class="arrow-head">▶</div>
+      </div>
+    </div>
+
+    <!-- Target -->
+    <div class="flow-node target">
+      <div class="fn-icon">{{ path.target.icon }}</div>
+      <div class="fn-label">{{ path.target.label }}</div>
+      <div class="fn-badge modern">Modern</div>
+    </div>
+
+  </div>
+
+  <!-- Meta row -->
+  <div class="flow-meta">
+    <div class="meta-item">
+      <span class="meta-label">Output</span>
+      <span class="meta-value">{{ path.estimatedFiles }}</span>
+    </div>
+    <div class="meta-item">
+      <span class="meta-label">Complexity</span>
+      <span class="meta-value complexity" [class]="path.complexity.toLowerCase()">{{ path.complexity }}</span>
+    </div>
+    <div class="meta-item">
+      <span class="meta-label">Stages</span>
+      <span class="meta-value">{{ path.stages.length }} automated steps</span>
+    </div>
+  </div>
+}

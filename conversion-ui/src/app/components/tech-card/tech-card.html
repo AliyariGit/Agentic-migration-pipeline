@@ -1,0 +1,12 @@
+<div class="tech-card" [class.selected]="selected()" (click)="select()"
+     [style.--card-color]="tech().color">
+  <div class="check" [class.visible]="selected()">✓</div>
+  <div class="icon">{{ tech().icon }}</div>
+  <div class="label">{{ tech().label }}</div>
+  <div class="desc">{{ tech().description }}</div>
+  <div class="tags">
+    @for (tag of tech().tags; track tag) {
+      <span class="tag">{{ tag }}</span>
+    }
+  </div>
+</div>

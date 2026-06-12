@@ -485,21 +485,24 @@ class Handler(http.server.BaseHTTPRequestHandler):
             length = int(self.headers.get('Content-Length', 0))
             body = json.loads(self.rfile.read(length) or b'{}')
             demo = bool(body.get('demo', False))
+            migration_type = body.get('migrationType', 'vbscript-to-dotnet')
+            migration_label = body.get('migrationLabel') or 'VBScript → .NET Core C#'
 
             with _log_lock:
                 if _pipeline_running:
                     self._json({'error': 'already running'}, 409); return
                 _pipeline_log = []
                 _pipeline_running = True
+                _pipeline_log.append(f'[CONFIG] Selected migration: {migration_label}')
 
-            threading.Thread(target=self._run_pipeline, args=(demo,), daemon=True).start()
+            threading.Thread(target=self._run_pipeline, args=(demo, migration_type), daemon=True).start()
             self._json({'started': True})
         else:
             self.send_response(404); self.end_headers()
 
     # ── Pipeline runner ───────────────────────────────────────────────────────
 
-    def _run_pipeline(self, demo: bool):
+    def _run_pipeline(self, demo: bool, migration_type: str):
         global _pipeline_running
         try:
             cmd = [sys.executable, '-u', 'run_pipeline.py']
@@ -507,6 +510,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 cmd.append('--demo')
             env = os.environ.copy()
             env['PYTHONUTF8'] = '1'
+            env['PIPELINE_MIGRATION_TYPE'] = migration_type
             proc = subprocess.Popen(
                 cmd, cwd=str(BASE_DIR),
                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT,

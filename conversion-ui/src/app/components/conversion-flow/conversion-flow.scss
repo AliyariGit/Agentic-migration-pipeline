@@ -1,0 +1,133 @@
+.flow-banner {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 10px;
+  padding: 20px 24px;
+  margin-bottom: 12px;
+  overflow-x: auto;
+}
+
+.flow-node {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  min-width: 100px;
+
+  .fn-icon { font-size: 32px; line-height: 1; }
+  .fn-label { font-size: 14px; font-weight: 700; color: #e6edf3; text-align: center; }
+
+  .fn-badge {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 10px;
+    border-radius: 10px;
+
+    &.legacy { background: #3d0e0e; color: #f85149; }
+    &.modern { background: #122d22; color: #3fb950; }
+  }
+}
+
+.flow-middle {
+  flex: 1;
+  padding: 0 16px;
+  min-width: 200px;
+}
+
+.flow-arrow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+
+  .arrow-line {
+    flex: 1;
+    height: 2px;
+    background: linear-gradient(90deg, #30363d, #58a6ff, #3fb950);
+    border-radius: 1px;
+    display: none; // hidden behind stages
+  }
+
+  .arrow-stages {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    flex: 1;
+  }
+
+  .arrow-stage {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    .stage-dot {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #1f3558;
+      color: #58a6ff;
+      font-size: 10px;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .stage-name {
+      font-size: 11px;
+      color: #8b949e;
+    }
+  }
+
+  .arrow-head {
+    font-size: 18px;
+    color: #3fb950;
+    flex-shrink: 0;
+    margin-left: 4px;
+  }
+}
+
+.flow-meta {
+  display: flex;
+  gap: 0;
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  overflow: hidden;
+
+  .meta-item {
+    flex: 1;
+    padding: 10px 16px;
+    border-right: 1px solid #30363d;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+
+    &:last-child { border-right: none; }
+
+    .meta-label {
+      font-size: 10px;
+      font-weight: 700;
+      color: #8b949e;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+    }
+
+    .meta-value {
+      font-size: 12px;
+      color: #c9d1d9;
+
+      &.complexity {
+        font-weight: 700;
+        &.low    { color: #3fb950; }
+        &.medium { color: #d29922; }
+        &.high   { color: #f85149; }
+      }
+    }
+  }
+}
